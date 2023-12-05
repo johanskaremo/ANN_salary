@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 import pandas as pd
@@ -45,22 +45,21 @@ def cleanData(data):
     data = data.drop(columns=["employment_type" , "salary", "salary_currency"])
     cutData = data.copy()
     cutData["salary_in_usd"] = pd.cut(cutData["salary_in_usd"].values, bins=5, labels=[0, 1, 2, 3, 4])
-
     #classes
     year = LabelEncoder()
     exp_lvl = LabelEncoder()
    # job_title = LabelEncoder()
     #country = LabelEncoder()
     comp_size = LabelEncoder()
-
+    min_max_scaler = MinMaxScaler()
     #cutData = cutData.iloc[:,:].values
 
     #fit encoded variables to specific columns
     cutData.iloc[:, 0] = year.fit_transform(cutData.iloc[:, 0])
     cutData.iloc[:, 1] = exp_lvl.fit_transform(cutData.iloc[:, 1])
-   # cutData.iloc[:, 2] = job_title.fit_transform(cutData.iloc[:, 2])
-   # cutData.iloc[:, 4] = country.fit_transform(cutData.iloc[:, 4])
     cutData.iloc[:, 5] = comp_size.fit_transform(cutData.iloc[:, 5])
+
+    cutData[['work_year', 'experience_level', 'company_size']] = min_max_scaler.fit_transform(cutData[['work_year', 'experience_level', 'company_size']])
     #year = 0, experiance level = 1, job title = 2, country = 4, company size = 5
     #salary = 3
 
@@ -68,18 +67,4 @@ def cleanData(data):
     cutData["job_title"] = cutData.job_title.map(freq_job)
     freq_loc = cutData.groupby("company_location").size() / len(cutData)
     cutData["company_location"] = cutData.company_location.map(freq_loc)
-
-    loList = []
-    mlList = []
-    miList = []
-    mhList = []
-    hiList= []
-
-    for i in range(len(data)):
-        if(cutData.iloc[i, 3] == 0): loList.append(data.iloc[i, 3])
-        elif(cutData.iloc[i, 3] == 1): mlList.append(data.iloc[i, 3])
-        elif(cutData.iloc[i, 3] == 2): miList.append(data.iloc[i, 3])
-        elif(cutData.iloc[i, 3] == 3): mhList.append(data.iloc[i, 3])
-        elif(cutData.iloc[i, 3] == 4): hiList.append(data.iloc[i, 3])
-
     return cutData

@@ -5,7 +5,7 @@ class Value:
 
     def __init__(self, data, _children=(), _op=''):
         self.data = data
-        self.grad = 0
+        self.grad = 0.0
         # internal variables used for autograd graph construction
         self._backward = lambda: None
         self._prev = set(_children)
@@ -35,10 +35,14 @@ class Value:
 
     def log(self):
         # The natural logarithm of the value
-        out = Value(np.log(self.data), (self,), 'log')
+        threshold = 1e-9
+        # Ensure self.data is not less than the threshold
+        safe_data = max(self.data, threshold)
+        out = Value(np.log(safe_data), (self,), 'log')
 
         def _backward():
-            self.grad += out.grad / self.data
+            #self.grad += out.grad / self.data
+          self.grad += out.grad / self.data if self.data > threshold else 0
 
         out._backward = _backward
 
@@ -49,28 +53,26 @@ class Value:
         out = Value(self.data**other, (self,), f'**{other}')
 
         def _backward():
-            self.grad += (other * self.data**(other-1)) * out.grad
+            self.grad += (other * self.data**(other-1.0)) * out.grad
         out._backward = _backward
 
         return out
 
     def exp(self):
+        if self.data > 10:
+            self.data = 10
         out = Value(np.exp(self.data), _children=(self,), _op='exp')
 
         def _backward():
             self.grad += out.grad * out.data  # d(e^x)/dx = e^x
-
         out._backward = _backward
-
         return out
 
     def relu(self):
-        print("type: " , type(self.data))
-        out = Value(0 if self.data < 0 else self.data, (self,), 'ReLU')
 
-
+        out = Value(0.0 if self.data < 0.0 else self.data, (self,), 'ReLU')
         def _backward():
-            self.grad += (out.data > 0) * out.grad
+            self.grad += (out.data > 0.0) * out.grad
         out._backward = _backward
 
         return out
@@ -97,7 +99,6 @@ class Value:
         topo = []
         visited = set()
         queue = deque([self])  # Using deque as a FIFO queue
-
         # Use popleft for FIFO behavior
         while queue:
             v = queue.popleft()  # This pops from the beginning of the queue
@@ -108,7 +109,7 @@ class Value:
 
         topo.reverse()
         # Go one variable at a time and apply the chain rule to get its gradient
-        self.grad = 1
+        self.grad = 1.0
         for v in reversed(topo):
             v._backward()
 
@@ -130,7 +131,7 @@ class Value:
     #         return softmax_values
 
     def __neg__(self): # -self
-        return self * -1
+        return self * -1.0
 
     def __radd__(self, other): # other + self
         return self + other
@@ -145,10 +146,10 @@ class Value:
         return self * other
 
     def __truediv__(self, other): # self / other
-        return self * other**-1
+        return self * other**-1.0
 
     def __rtruediv__(self, other): # other / self
-        return other * self**-1
+        return other * self**-1.0
 
     def __repr__(self):
         return f"Value(data={self.data}, grad={self.grad})"

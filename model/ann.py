@@ -3,33 +3,29 @@ from model.engine import Value
 import numpy as np
 
 def softmax(logits):
-    exps = [logit.exp() for logit in logits]
-    exp_tot = Value(0)
-    for exp in exps:
-        exp_tot += exp.data
-    softmax_probs = [expi.data / exp_tot for expi in exps]
-    softmax_values = [Value(prob.data, _children=tuple(logits), _op="softmax") for prob in softmax_probs]
-    # exps = [np.exp(logit.data) for logit in logits]
+    # exps = [logit.exp() for logit in logits]
     # exp_tot = sum(exps)
     # softmax_probs = [(expi / exp_tot) for expi in exps]
-    # softmax_values = [Value(val, (logit,), "softmax") for val, logit in zip(softmax_probs, logits)]
 
-    def _backward(out, idx, softmax_probs = softmax_probs, logits = logits):
-        print(f"Backward called for softmax output index {idx}")
-        for i, logit in enumerate(logits):
-            if i == idx:
-                delta = softmax_probs[i] * (1 - softmax_probs[i])
-            else:
-                delta = -softmax_probs[i] * softmax_probs[idx]
-            logit.grad += out.grad * delta
+    exps = [logit.exp() for logit in logits]
+    exp_tot = Value(0)  # Start with a Value object instead of a Python scalar
 
-    for idx, out in enumerate(softmax_values):
-            out._backward = lambda out=out, idx=idx: _backward(out, idx)
-            print(f"Assigned backward for index {idx}")
-    return softmax_values
+    for exp in exps:
+        exp_tot = exp_tot + exp
+    softmax_probs = [(expi / exp_tot) for expi in exps]
+    # def _backward(out, idx, softmax_probs = softmax_probs, logits = logits):
+    #     for i, logit in enumerate(logits):
+    #         if i == idx:
+    #             delta = softmax_probs[i] * (1 - softmax_probs[i])
+    #         else:
+    #             delta = -softmax_probs[i] * softmax_probs[idx]
+    #         logit.grad += out.grad * delta
+    #
+    # for idx, out in enumerate(softmax_probs):
+    #         out._backward = lambda out=out, idx=idx: _backward(out, idx)
+    return softmax_probs
 
 class Module:
-
     def zero_grad(self):
         for p in self.parameters():
             p.grad = 0
@@ -77,7 +73,7 @@ class MLP(Module):
 
     def __call__(self, x):
         for i, layer in enumerate(self.layers):
-            x = layer(x)
+            x = layer(x)    #går från höger tillvänster. Den förra outputen x är nu input till nästa lager
             if i == len(self.layers) - 1:
                 x = softmax(x)
         return x

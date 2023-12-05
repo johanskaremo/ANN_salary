@@ -7,6 +7,10 @@ import matplotlib.pyplot as plt
 import random
 from sklearn.datasets import make_moons, make_blobs
 
+def clip_gradients(model, max_value):
+    for param in model.parameters():
+        param.grad = np.clip(param.grad, -max_value, max_value)
+
 def crossEntropyLoss(y_true, y_pred):
     # Assuming y_true is a list of integers representing the correct classes
     # and y_pred is a list of lists of Value objects (softmax probabilities).
@@ -17,9 +21,10 @@ def crossEntropyLoss(y_true, y_pred):
         # Cross-entropy loss for this instance
         loss_instance = -p.log()
         loss += loss_instance
-    return loss / Value(len(y_true))
+    #return loss / Value(len(y_true))
+    return loss / len(y_true)
 
-def loss(batch_size=None):
+def loss(batch_size):
     # inline DataLoader :)
     if batch_size is None:
         Xb, yb = X, y
@@ -27,7 +32,6 @@ def loss(batch_size=None):
         ri = np.random.permutation(X.shape[0])[:batch_size]
         Xb, yb = X[ri], y[ri]
 
-    #yb = [Value(yi[0]) for yi in yb]  # Convert each label in yb to Value
     inputs = [list(map(Value, xrow)) for xrow in Xb]
 
     # forward the model to get scores
@@ -60,6 +64,7 @@ X = X.astype(np.float16)
 X = X[-10:]    #ta bort sen
 y = y[-10:]    #ta bort sen
 
+
 #y = np.argmax(y, axis=-1)
 # X = X.tolist()
 # y = y_new.tolist()
@@ -72,22 +77,53 @@ y = y[-10:]    #ta bort sen
 #
 # y = y*2 - 1 # make y be -1 or 1
 
+#model = MLP(5, [16, 16, 5]) # 2-layer neural network orginal
 model = MLP(5, [16, 16, 5]) # 2-layer neural network
+num_epochs = 100
+num_samples = X.shape[0]
+batch_size = 4
+num_batches = num_samples // batch_size
 
-for k in range(100):
-    # forward
-    total_loss, acc = loss()
+for epoch in range(num_epochs):  #100 från början, detta är den ursprungliga trainingloop
+    tot_loss = 0
+    total_correct = 0
+    total_samples = 0
 
-    # backward
-    model.zero_grad()
-    total_loss.backward()
+    for _ in range(num_batches):
+        # forward
+        batch_loss, batch_acc = loss(batch_size = batch_size)
 
-    # update (sgd)
-    learning_rate = 1.0 - 0.9 * k / 100
-    for p in model.parameters():
-        p.data -= learning_rate * p.grad
+        # backward
+        model.zero_grad()
+        batch_loss.backward()
+        clip_gradients(model, max_value=1.0)
+        # update (sgd)
+        learning_rate = 1.0 - 0.9 * epoch / num_epochs
+        for p in model.parameters():
+            p.data -= learning_rate * p.grad
+            #print(p.grad)
+        tot_loss += batch_loss.data
+        total_correct += batch_acc * batch_size
+        total_samples += batch_size
 
-    if k % 1 == 0:
-        print(f"step {k} loss {total_loss.data}, accuracy {acc * 100}%")
-
+    epoch_loss = tot_loss / num_batches
+    epoch_accuracy = total_correct / total_samples
+    print(f"Epoch {epoch}: Loss {epoch_loss}, Accuracy {epoch_accuracy * 100}%")
+# for k in range(100):  #100 från början, detta är den ursprungliga trainingloop
+#     # forward
+#     total_loss, acc = loss()
+#
+#     # backward
+#     model.zero_grad()
+#     total_loss.backward()
+#     clip_gradients(model, max_value=1.0)
+#     # update (sgd)
+#     learning_rate = 1.0 - 0.9 * k / 100
+#     for p in model.parameters():
+#         p.data -= learning_rate * p.grad
+#         #print(p.grad)
+#
+#     if k % 1 == 0:
+#         print(f"epoch {k} loss {total_loss.data}, accuracy {acc * 100}%")
+#
 
