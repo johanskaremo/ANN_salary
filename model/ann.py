@@ -1,31 +1,19 @@
 import random
 from model.engine import Value
-import numpy as np
 
 def softmax(logits):
-    # exps = [logit.exp() for logit in logits]
-    # exp_tot = sum(exps)
-    # softmax_probs = [(expi / exp_tot) for expi in exps]
-
     exps = [logit.exp() for logit in logits]
-    exp_tot = Value(0)  # Start with a Value object instead of a Python scalar
+    exp_tot = Value(0)
 
+    #calculate softmax probabilities for all output neurons
     for exp in exps:
         exp_tot = exp_tot + exp
     softmax_probs = [(expi / exp_tot) for expi in exps]
-    # def _backward(out, idx, softmax_probs = softmax_probs, logits = logits):
-    #     for i, logit in enumerate(logits):
-    #         if i == idx:
-    #             delta = softmax_probs[i] * (1 - softmax_probs[i])
-    #         else:
-    #             delta = -softmax_probs[i] * softmax_probs[idx]
-    #         logit.grad += out.grad * delta
-    #
-    # for idx, out in enumerate(softmax_probs):
-    #         out._backward = lambda out=out, idx=idx: _backward(out, idx)
+
     return softmax_probs
 
 class Module:
+    #Reset gradients to zero to not have incorrect updates of parameters
     def zero_grad(self):
         for p in self.parameters():
             p.grad = 0
@@ -53,7 +41,7 @@ class Neuron(Module):
 class Layer(Module):
 
     def __init__(self, nin, nout, **kwargs):
-        self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)]
+        self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)] #creates a list which essensially have nbr of neurons equal to nout
 
     def __call__(self, x):
         out = [n(x) for n in self.neurons]
@@ -68,15 +56,21 @@ class Layer(Module):
 class MLP(Module):
 
     def __init__(self, nin, nouts):
-        sz = [nin] + nouts
-        self.layers = [Layer(sz[i], sz[i+1], nonlin=i!=len(nouts)-1) for i in range(len(nouts))]
+        sz = [nin] + nouts     #creates a total list with the initialized MLP eg. [5, 8, 8, 5]
+        self.layers = [Layer(sz[i], sz[i+1], nonlin=i!=len(nouts)-1) for i in range(len(nouts))] #creating layers with nbr neuron equal to intialization
+        self.training = True        #nonlin applies nonlinear activation for all layers except last, training start as true
 
     def __call__(self, x):
-        for i, layer in enumerate(self.layers):
-            x = layer(x)    #går från höger tillvänster. Den förra outputen x är nu input till nästa lager
+        for i, layer in enumerate(self.layers): #go through all layers
+            x = layer(x)    #går från höger till vänster. Den förra outputen x är nu input till nästa lager
             if i == len(self.layers) - 1:
-                x = softmax(x)
+                x = softmax(x)  #check if last layer, then apply softmax
         return x
+    def train(self):
+        self.training = True
+
+    def eval(self):
+        self.training = False
 
     def parameters(self):
         return [p for layer in self.layers for p in layer.parameters()]

@@ -41,7 +41,6 @@ class Value:
         out = Value(np.log(safe_data), (self,), 'log')
 
         def _backward():
-            #self.grad += out.grad / self.data
           self.grad += out.grad / self.data if self.data > threshold else 0
 
         out._backward = _backward
@@ -64,7 +63,7 @@ class Value:
         out = Value(np.exp(self.data), _children=(self,), _op='exp')
 
         def _backward():
-            self.grad += out.grad * out.data  # d(e^x)/dx = e^x
+            self.grad += out.grad * out.data
         out._backward = _backward
         return out
 
@@ -77,28 +76,10 @@ class Value:
 
         return out
 
-    # def backward(self):
-    #
-    #     # topological order all of the children in the graph
-    #     topo = []
-    #     visited = set()
-    #     def build_topo(v):
-    #         if v not in visited:
-    #             visited.add(v)
-    #             for child in v._prev:
-    #                 build_topo(child)
-    #             topo.append(v)
-    #     build_topo(self)
-    #
-    #     # go one variable at a time and apply the chain rule to get its gradient
-    #     self.grad = 1
-    #     for v in reversed(topo):
-    #         v._backward()
-
     def backward(self):
         topo = []
         visited = set()
-        queue = deque([self])  # Using deque as a FIFO queue
+        queue = deque([self])  # Using queue for popping first element
         # Use popleft for FIFO behavior
         while queue:
             v = queue.popleft()  # This pops from the beginning of the queue
@@ -109,26 +90,9 @@ class Value:
 
         topo.reverse()
         # Go one variable at a time and apply the chain rule to get its gradient
-        self.grad = 1.0
+        self.grad = 1.0     #set "Loss" gradient to 1 to start the process
         for v in reversed(topo):
             v._backward()
-
-    # def softmax(logits):
-    #     exps = [np.exp(logit.data) for logit in logits]
-    #     exp_tot = sum(exps)
-    #     softmax_probs = [(expi / exp_tot) for expi in exps]
-    #     softmax_values = [Value(val, (logit,), "softmax") for val, logit in zip(softmax_probs,logits)]
-    #
-    #     def _backward(out, idx):
-    #         for i, logit in enumerate(logits):
-    #             if i == idx:
-    #                 logit.grad += out.grad * softmax_probs[i] * (1- softmax_probs[i])
-    #             else:
-    #                 logit.grad +=  -out.grad * softmax_probs[i] * (1-softmax_probs[i])
-    #         for idx, out in enumerate(softmax_values):
-    #             out._backward = lambda: _backward(out, idx)
-    #
-    #         return softmax_values
 
     def __neg__(self): # -self
         return self * -1.0
